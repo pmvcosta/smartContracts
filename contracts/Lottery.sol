@@ -1,10 +1,10 @@
-pragma solidity ^0.4.17;
+pragma solidity ^0.8.6;
 
 contract Lottery{
   address public manager;
-  address[] public players;
+  address payable[]  public players;
 
-  function Lottery() public{
+  constructor() {
     manager = msg.sender;
   }
 
@@ -15,7 +15,9 @@ contract Lottery{
   function enter() public payable {
     require(msg.value > .01 ether );//Used for validation
     // ether converts .01 Ether into its value in wei
-    players.push(msg.sender);
+    //In Solidity 0.8 msg.sender is not automatically payable anymore.
+    // So you need to make it payable first:
+    players.push(payable(msg.sender));
   }
 
   function pickWinner() public restricted {
@@ -24,14 +26,16 @@ contract Lottery{
     //index of the winning player
     uint index = random() % players.length;
     //transfer ether contained within contract to winner
-    players[index].transfer(this.balance);
+    players[index].transfer(address(this).balance);
     //create new dynamic array of type address with 0 length (hence the (0) )
-    players = new address[](0);
+    players = new address payable[](0);
   }
 
   //Helper function, doesn't alter data, returns pseudo-random positive integer
   function random() private view returns(uint){
-    return uint(sha3(block.difficulty, now, players));//evoke the sha3
+    //"sha3" has been deprecated in favour of "keccak256".
+    //"now" has been deprecated. Use "block.timestamp" instead.
+    return uint(keccak256(abi.encode(block.difficulty, block.timestamp, players)));//evoke the sha3
   }
 
   modifier restricted() {
@@ -39,7 +43,7 @@ contract Lottery{
     _;
   }
 
-  function getPlayers() public view returns (address[]){
+  function getPlayers() public view returns (address payable[] memory){
     return players;
   }
 }

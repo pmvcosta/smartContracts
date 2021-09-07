@@ -1,17 +1,19 @@
 pragma solidity ^0.8.6;
 
+import "hardhat/console.sol";
+
 contract CampaignFactory{
   address[] public deployedCampaigns;
 
   function createCampaign (uint minimum) public {
     //minimum is the minimum contribution expected by a campaign
-    address newCampaign = new Campaign(minimum, msg.sender);
+    address newCampaign = address(new Campaign(minimum, msg.sender));
     //like this ^, sender will be the factory contract
     deployedCampaigns.push(newCampaign);
 
   }
 
-  function getDeployedCampaigns () public view returns (address[]) {
+  function getDeployedCampaigns () public view returns ( address[] memory) {
     return deployedCampaigns;
   }
 }
@@ -21,7 +23,7 @@ contract Campaign{
   struct Request {
     string description;
     uint value;
-    address recipient;
+    address payable recipient;
     bool complete;
     mapping(address => bool) approvals;//Keeping track of who has voted
     uint approvalCount;//Number of approvals, to be compared with numver of approvers (defined below)
@@ -35,6 +37,8 @@ contract Campaign{
   //address[] public approvers;
   //Creating an array of Request instances
   Request[] public requests;
+  uint256 numRequests;
+  //mapping (uint256 => Request) requests;
 
   modifier restricted() {
     require(msg.sender == manager);
@@ -42,7 +46,7 @@ contract Campaign{
   }
 
   // Minimum contribution is bound to vary from case to case
-  function Campaign(uint minimum, address creator) public {
+  constructor(uint minimum, address creator)  {
     manager = creator;
     minimumContribution = minimum;
   }
@@ -59,19 +63,26 @@ contract Campaign{
     //Keep count of approvers
   }
 
-  function createRequest( string description, uint value, address recipient ) public restricted {
+  function createRequest( string memory description, uint value, address payable recipient ) public restricted {
     //Only manager can access this function
     //Whenever an instance of a struct is created we must provide
     //as many arguments as were defined above
-    Request memory newRequest = Request({
+    /*Request memory newRequest = Request({
       description : description,
       value : value,
       recipient : recipient,
       complete : false,
       approvalCount: 0 //approvals doesn't have to be initialized,
       //it is not a value type, it is a reference type
-    });
-    requests.push(newRequest);
+    });*/
+    //Request storage newRequest = requests[numRequests++]
+    Request storage newRequest = requests.push();
+    newRequest.description = description;
+    newRequest.value = value;
+    newRequest.recipient = recipient;
+    newRequest.complete = false;
+    newRequest.approvalCount = 0;
+    //requests.push(newRequest);
   }
 
 //index of the request being approved (or not) is an argument
@@ -104,7 +115,7 @@ contract Campaign{
     //Return campaign balance, minimum contribution, number of requests
     return(
       minimumContribution,
-      this.balance, //this is deprecated, use address(this).balance
+      address(this).balance, //this.balance is deprecated, use address(this).balance
       requests.length,
       approversCount,
       manager
